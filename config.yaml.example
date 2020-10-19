@@ -1,0 +1,12 @@
+rgbcalc: curve
+mqtt:
+  server: 192.168.0.1
+  username: lol-lights
+  password: mysecretpassphrase
+  topics:
+  - path: lol-lights/trigger
+    template: "{\"red\": $red, \"green\": $green}"
+runcommand:
+  - keyboard-led $red $green 0 4
+
+
