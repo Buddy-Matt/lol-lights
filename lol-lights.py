@@ -43,8 +43,6 @@ while True:
   else:
     healthPCT = 1
   
-  print(healthPCT)
-
   ###Get linear values
   if healthPCT > .5:
     red = 200*(1-healthPCT)
@@ -59,19 +57,19 @@ while True:
     green = pow((0.1598 * green),2)
 
   ###round down
+  healthPCT = str(round(healthPCT * 100))
   red = str(int(red))
   green = str(int(green))
 
-  print(red)
-  print(green)
+  print("H:" + healthPCT + "  \tR:" + red + "  \tG:" + green + "  ", end="\r")
 
   ###dispatch to mqtt
   if config["mqtt"] != None:
     for topic in mqttTopics:
-      mqttClient.publish(topic["path"],topic["template"].replace("$red",red).replace("$green",green))
+      mqttClient.publish(topic["path"],topic["template"].replace("$red",red).replace("$green",green).replace("$health",healthPCT))
   
   ###run commands
   if config["runcommand"] != None:
     for command in config["runcommand"]:
-      os.system(command.replace("$red",red).replace("$green",green))
+      os.system(command.replace("$red",red).replace("$green",green).replace("$health",healthPCT))
 
