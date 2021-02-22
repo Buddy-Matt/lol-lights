@@ -1,8 +1,30 @@
-#!/bin/python3
 import paho.mqtt.client as mqtt, sys, json, yaml, ssl, os, time
-from urllib.request import urlopen
+import urllib.request
 
-leagueApiUri = "https://localhost:2999/liveclientdata/activeplayer"
+import usb.core
+import usb.backend.libusb1
+
+#import requests
+
+leagueApiUri = "https://127.0.0.1:2999/liveclientdata/activeplayer"
+usb_device = usb.core.find(idVendor=0x048d, idProduct=0xce00, backend=usb.backend.libusb1.get_backend(find_library=lambda c: "c:\libusb\libusb-1.0.dll"))
+
+def send_usb_col(red,green,blue):
+  start =(0x14, 0x00)
+  rgb = (red,green,blue)
+  end = (0x00, 0x00)
+  prog = 0x01
+  speed = 0x0a
+  bright = 0x32
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x01,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x02,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x03,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x04,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x05,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x06,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x07,) + rgb + end)
+  usb_device.ctrl_transfer(0x21,0x09,0x300,1,(0x08, 0x02, prog, speed, bright, 0x08, 0x00, 0x00))
+  
 
 ####Read Config
 with open("config.yaml","r") as stream:
@@ -26,14 +48,18 @@ if config["mqtt"] != None:
   mqttTopics = mqttConfig["topics"]
 
 ####Start polling for the client data
+sslunverified = ssl._create_unverified_context()
+
 while True:
   try:
-    response = urlopen(leagueApiUri, context=ssl._create_unverified_context())
-    responseData = json.loads(response.read().decode('utf-8'))
+    response = urllib.request.urlopen(leagueApiUri, context=sslunverified).read()
+    responseData = json.loads(response)
     stats = responseData["championStats"]
     maxHealth = int(stats["maxHealth"])
     currentHealth = int(stats["currentHealth"])
-  except:
+  except Exception as e:
+    print("Error - server probably not up")
+    print(e)
     time.sleep(5) ###server probably not up - don't hammer, wait 5 seocnds before retrying
     continue
 
@@ -58,18 +84,24 @@ while True:
 
   ###round down
   healthPCT = str(round(healthPCT * 100))
-  red = str(int(red))
-  green = str(int(green))
+  ired = int(red)
+  igreen = int(green)
+  red = str(ired)
+  green = str(igreen)
 
-  print("H:" + healthPCT + "  \tR:" + red + "  \tG:" + green + "  ", end="\r")
+  print("H:" + healthPCT + "  \tR:" + red + "  \tG:" + green + "  ") #, end="\r")
 
   ###dispatch to mqtt
-  if config["mqtt"] != None:
+  if "mqtt" in config and config["mqtt"] != None:
     for topic in mqttTopics:
       mqttClient.publish(topic["path"],topic["template"].replace("$red",red).replace("$green",green).replace("$health",healthPCT))
   
   ###run commands
-  if config["runcommand"] != None:
+  if "runcommand" in config and config["runcommand"] != None:
     for command in config["runcommand"]:
       os.system(command.replace("$red",red).replace("$green",green).replace("$health",healthPCT))
 
+  if "enable_keyb" in config:
+    send_usb_col(ired,igreen,0)
+
+  time.sleep(0.05) #small wait to prevent carnage
