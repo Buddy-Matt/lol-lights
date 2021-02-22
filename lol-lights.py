@@ -1,13 +1,22 @@
 import paho.mqtt.client as mqtt, sys, json, yaml, ssl, os, time
 import urllib.request
 
-import usb.core
-import usb.backend.libusb1
-
 #import requests
 
 leagueApiUri = "https://127.0.0.1:2999/liveclientdata/activeplayer"
-usb_device = usb.core.find(idVendor=0x048d, idProduct=0xce00, backend=usb.backend.libusb1.get_backend(find_library=lambda c: "c:\libusb\libusb-1.0.dll"))
+
+####Read Config
+with open("config.yaml","r") as stream:
+  try:
+    config = yaml.load(stream, Loader=yaml.SafeLoader)
+  except:
+    print("malformed config file")
+    sys.exit()
+
+if "enable_keyb" in config:
+  import usb.core
+  import usb.backend.libusb1
+  usb_device = usb.core.find(idVendor=0x048d, idProduct=0xce00, backend=usb.backend.libusb1.get_backend(find_library=lambda c: "c:\libusb\libusb-1.0.dll"))
 
 def send_usb_col(red,green,blue):
   start =(0x14, 0x00)
@@ -24,15 +33,6 @@ def send_usb_col(red,green,blue):
   usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x06,) + rgb + end)
   usb_device.ctrl_transfer(0x21,0x09,0x300,1,start + (0x07,) + rgb + end)
   usb_device.ctrl_transfer(0x21,0x09,0x300,1,(0x08, 0x02, prog, speed, bright, 0x08, 0x00, 0x00))
-  
-
-####Read Config
-with open("config.yaml","r") as stream:
-  try:
-    config = yaml.load(stream, Loader=yaml.SafeLoader)
-  except:
-    print("malformed config file")
-    sys.exit()
 
 ####Connect to mqtt if defined
 if config["mqtt"] != None:
