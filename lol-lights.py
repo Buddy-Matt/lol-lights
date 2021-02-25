@@ -35,7 +35,7 @@ def send_usb_col(red,green,blue):
   usb_device.ctrl_transfer(0x21,0x09,0x300,1,(0x08, 0x02, prog, speed, bright, 0x08, 0x00, 0x00))
 
 ####Connect to mqtt if defined
-if config["mqtt"] != None:
+if "mqtt" in config and config["mqtt"] != None:
   mqttConfig = config["mqtt"]
   mqttClient = mqtt.Client()
   if mqttConfig["username"] != None and mqttConfig["password"] != None:
@@ -61,6 +61,9 @@ while True:
     print("Error - server probably not up")
     print(e)
     time.sleep(5) ###server probably not up - don't hammer, wait 5 seocnds before retrying
+    ##reconnect MQTT
+    if "mqtt" in config and config["mqtt"] != None:
+      mqttClient.reconnect();
     continue
 
   ###During load screen maxhealth = 0, so simply force to 100%
